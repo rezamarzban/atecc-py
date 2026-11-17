@@ -104,20 +104,27 @@ def cmd_dump_config(ctx, argv):
     return 0
 
 
-def _lock_cmd(fn):
+def _lock_cmd(label, fn):
+    """Lock queries: print a readable answer AND keep the C tool's exit codes
+    (0 = locked, 1 = not locked), because termux-usb hides the exit status."""
     def run(ctx, argv):
-        return 0 if fn(ctx, argv) else 1
+        locked = fn(ctx, argv)
+        print("%s: %s" % (label, "LOCKED" if locked else "unlocked"))
+        return 0 if locked else 1
     return run
 
 
-cmd_config_is_locked = _lock_cmd(lambda c, a: cz.is_config_locked(c.chip.read_config()))
-cmd_data_is_locked = _lock_cmd(lambda c, a: cz.is_data_locked(c.chip.read_config()))
+cmd_config_is_locked = _lock_cmd("config zone", lambda c, a: cz.is_config_locked(c.chip.read_config()))
+cmd_data_is_locked = _lock_cmd("data zone", lambda c, a: cz.is_data_locked(c.chip.read_config()))
 
 
 def cmd_slot_is_locked(ctx, argv):
     if len(argv) < 2:
         return help_for("slot-is-locked")
-    return 0 if cz.is_slot_locked(ctx.chip.read_config(), int(argv[1])) else 1
+    slot = int(argv[1])
+    locked = cz.is_slot_locked(ctx.chip.read_config(), slot)
+    print("slot %d: %s" % (slot, "LOCKED" if locked else "unlocked"))
+    return 0 if locked else 1
 
 
 def cmd_counter_read(ctx, argv):
@@ -127,6 +134,8 @@ def cmd_counter_read(ctx, argv):
     print("Counter %d: %d" % (cid, ctx.chip.counter_read(cid)))
     return 0
 
+
+LOCK_QUERIES = {"config-is-locked", "data-is-locked", "slot-is-locked"}
 
 COMMANDS = {
     "serial": (cmd_serial, "Print the 9-byte serial number in hex"),
@@ -200,7 +209,9 @@ def main(argv=None) -> int:
                 usage()
                 return 1
             ret = COMMANDS[words[0]][0](ctx, words)
-            if ret != 0:
+            # "not locked" (1) from a lock query is an answer, not a failure:
+            # keep running the remaining commands.
+            if ret != 0 and not (ret == 1 and words[0] in LOCK_QUERIES):
                 break
     except AteccError as e:
         eprint("error: %s" % e)
