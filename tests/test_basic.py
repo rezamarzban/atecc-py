@@ -43,6 +43,7 @@ class Protocol(unittest.TestCase):
         self.assertEqual(chip.read_config(), bytes(sim.config))
 
     def test_counter(self):
+        self.sim.counters[0] = 5
         self.assertEqual(self.chip.counter_read(0), 5)
 
     def test_lock_flags(self):

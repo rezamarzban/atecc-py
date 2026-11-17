@@ -20,23 +20,32 @@ PROFILES = {
 }
 
 
+# Exact signatures from cryptoauthlib (atcab_device_type), plus ATECC608B.
+SIGNATURES = {
+    bytes([0x00, 0x00, 0x60, 0x01]): "ATECC608A",
+    bytes([0x00, 0x00, 0x60, 0x02]): "ATECC608A",
+    bytes([0x00, 0x00, 0x60, 0x03]): "ATECC608B",
+    bytes([0x00, 0x00, 0x50, 0x00]): "ATECC508A",
+    bytes([0x80, 0x00, 0x10, 0x01]): "ATECC108A",
+    bytes([0x00, 0x02, 0x00, 0x08]): "ATSHA204A",
+    bytes([0x00, 0x02, 0x00, 0x09]): "ATSHA204A",
+    bytes([0x00, 0x04, 0x05, 0x00]): "ATSHA204A",
+}
+
+
 def detect(revision: bytes) -> ChipProfile:
     """Map the 4-byte DevRev (Info mode 0) to a profile.
 
-    Only the 608A revision (00 00 60 02) is checked against real hardware use;
-    the other mappings follow the CryptoAuthLib convention and are best-effort.
+    Exact matches follow CryptoAuthLib. Unknown revisions fall back to the family
+    byte (rev[2]); the 608B (00 00 60 03) mapping is an addition not in that table.
     """
     if len(revision) != 4:
         raise ValueError("revision must be 4 bytes")
-    family = revision[2]
-    if family == 0x60:
-        return PROFILES["ATECC608A"] if revision[3] < 0x03 else PROFILES["ATECC608B"]
-    if family == 0x50:
-        return PROFILES["ATECC508A"]
-    if family == 0x10:
-        return PROFILES["ATECC108A"]
-    if family == 0x40:
-        return PROFILES["ATSHA206A"]
-    if family in (0x00, 0x02):
-        return PROFILES["ATSHA204A"]
-    raise ValueError("unknown device revision %s" % revision.hex())
+    name = SIGNATURES.get(bytes(revision))
+    if name is None:
+        fam = {0x60: "ATECC608A", 0x50: "ATECC508A", 0x10: "ATECC108A",
+               0x40: "ATSHA206A", 0x00: "ATSHA204A", 0x05: "ATSHA204A"}.get(revision[2])
+        if fam is None:
+            raise ValueError("unknown device revision %s" % revision.hex())
+        name = fam
+    return PROFILES[name]

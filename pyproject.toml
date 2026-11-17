@@ -1,0 +1,19 @@
+[project]
+name = "atecc-py"
+version = "0.2.0"
+description = "Control ATECC/ATSHA CryptoAuthentication chips over I2C (Linux, Termux/Android)"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["cryptography"]
+
+[project.scripts]
+atecc = "atecc.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["atecc*"]
