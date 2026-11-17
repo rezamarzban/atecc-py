@@ -1,0 +1,10 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Python replacement for the old ~/i2cusb wrapper (no LD_PRELOAD, no shim build).
+#
+#   ATECC_ARGS="-c serial -c info" termux-usb -r -e ~/atecc-py/scripts/atecc-termux /dev/bus/usb/002/002
+#
+# termux-usb passes the USB file descriptor as $1.
+FD="$1"
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
+exec sh -c "python3 -m atecc -t tinyusb --usb-fd $FD $ATECC_ARGS"
