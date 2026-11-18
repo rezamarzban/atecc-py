@@ -174,6 +174,48 @@ printf '\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF' > plai
 at aes encrypt 10 0 plain.bin cipher.bin     # status 0x03 on the tested chip
 ```
 
+### Using the chip's RNG instead of `openssl rand`
+
+Keys, salts and IVs can come from the chip's hardware random number generator.
+The `random` command prints 32 random bytes as a **64-character hex string**
+(not a binary file), so it must be converted to binary with `xxd -r -p`.
+
+**32-byte key:**
+```bash
+at random | grep -E '^[0-9a-f]{64}$' | xxd -r -p > my_key.bin
+ls -l my_key.bin        # must show 32
+```
+`grep` removes the empty line that `termux-usb` appends and any other noise, and
+keeps only the 64-character hex line. Then write it as usual:
+```bash
+at hmac-write-key 11 0 my_key.bin
+```
+
+**16-byte salt:**
+```bash
+at random | grep -E '^[0-9a-f]{64}$' | head -c 32 | xxd -r -p > salt.bin
+```
+`head -c 32` keeps only the first 32 hex characters (16 bytes).
+
+**IV (as hex, the format `openssl enc -iv` expects):**
+```bash
+at random | grep -E '^[0-9a-f]{64}$' | head -c 32 > iv.hex
+```
+
+Notes:
+- Each `at random` call returns only 32 bytes. For a 32-byte key one call is
+  enough; for anything longer, call it several times and concatenate the results.
+- This is the chip's hardware RNG and is suitable for key generation. If you
+  prefer not to rely on a single entropy source, XOR the chip output with
+  `openssl rand` output (usually unnecessary).
+- Sanity check: run `xxd my_key.bin` and confirm the key is not all zeros or a
+  repeating pattern, and run `at random` twice to confirm the two outputs differ.
+  If a command fails, `my_key.bin` can end up empty or the wrong size, so always
+  check `ls -l`.
+- The `rand` calls inside `verify_key.sh`, `test_roundtrip.sh` and the other
+  scripts can be replaced the same way, e.g. `openssl rand 32 > rt_key_$s.bin`
+  becomes `at random | grep -E '^[0-9a-f]{64}$' | xxd -r -p > rt_key_$s.bin`.
+
 ---
 
 ## 5. Verifying that a key was written correctly
